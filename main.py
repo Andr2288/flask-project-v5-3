@@ -4,7 +4,7 @@ from flask_jwt_extended import JWTManager, jwt_required, create_access_token, ge
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
 from models import db, User, Post, Comment
-from forms import LoginForm, RegisterForm, UserForm, PostForm, CommentForm
+from forms import LoginForm, RegisterForm, PostForm, CommentForm
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
@@ -34,9 +34,8 @@ def login_required(f):
 # Routes
 @app.route('/')
 def index():
-    users = User.query.all()
     posts = Post.query.order_by(Post.created_at.desc()).limit(5).all()
-    return render_template('index.html', users=users, posts=posts)
+    return render_template('index.html', posts=posts)
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -86,80 +85,6 @@ def logout():
     session.clear()
     flash('You have been logged out.', 'success')
     return redirect(url_for('index'))
-
-
-# User CRUD
-@app.route('/users')
-@login_required
-def users():
-    users = User.query.all()
-    return render_template('users.html', users=users)
-
-
-@app.route('/users/create', methods=['GET', 'POST'])
-@login_required
-def create_user():
-    form = UserForm()
-    if form.validate_on_submit():
-        try:
-            user = User(username=form.username.data, email=form.email.data)
-            user.set_password(form.password.data)
-            db.session.add(user)
-            db.session.commit()
-            flash('User created!', 'success')
-            return redirect(url_for('users'))
-        except IntegrityError:
-            db.session.rollback()
-            # Check what caused the error
-            existing_user = User.query.filter_by(username=form.username.data).first()
-            existing_email = User.query.filter_by(email=form.email.data).first()
-
-            if existing_user:
-                flash('This username is already taken. Choose another one.', 'error')
-            elif existing_email:
-                flash('This email is already used. Choose another one.', 'error')
-            else:
-                flash('User creation failed. Please try again.', 'error')
-    return render_template('create_user.html', form=form)
-
-
-@app.route('/users/<int:id>/edit', methods=['GET', 'POST'])
-@login_required
-def edit_user(id):
-    user = User.query.get_or_404(id)
-    form = UserForm(user_id=id, obj=user)
-    if form.validate_on_submit():
-        try:
-            user.username = form.username.data
-            user.email = form.email.data
-            if form.password.data:
-                user.set_password(form.password.data)
-            db.session.commit()
-            flash('User updated!', 'success')
-            return redirect(url_for('users'))
-        except IntegrityError:
-            db.session.rollback()
-            # Check what caused the error
-            existing_user = User.query.filter(User.username == form.username.data, User.id != id).first()
-            existing_email = User.query.filter(User.email == form.email.data, User.id != id).first()
-
-            if existing_user:
-                flash('This username is already taken by another user.', 'error')
-            elif existing_email:
-                flash('This email is already used by another user.', 'error')
-            else:
-                flash('User update failed. Please try again.', 'error')
-    return render_template('edit_user.html', form=form, user=user)
-
-
-@app.route('/users/<int:id>/delete', methods=['POST'])
-@login_required
-def delete_user(id):
-    user = User.query.get_or_404(id)
-    db.session.delete(user)
-    db.session.commit()
-    flash('User deleted!', 'success')
-    return redirect(url_for('users'))
 
 
 # Post CRUD

@@ -14,9 +14,6 @@
             <div class="navbar-nav me-auto">
                 <a class="nav-link" href="{{ url_for('index') }}">Головна</a>
                 <a class="nav-link" href="{{ url_for('posts') }}">Пости</a>
-                {% if session.user_id %}
-                    <a class="nav-link" href="{{ url_for('users') }}">Користувачі</a>
-                {% endif %}
             </div>
 
             <div class="navbar-nav">

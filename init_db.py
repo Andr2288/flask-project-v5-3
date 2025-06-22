@@ -6,17 +6,32 @@ from datetime import datetime
 def init_database():
     """Ініціалізує базу даних з тестовими даними"""
     with app.app_context():
-        # Створити таблиці
+        # Створити таблиці якщо їх немає
         db.create_all()
 
         # Перевірити чи є дані
-        if User.query.count() > 0:
-            print("База даних вже містить дані")
-            return
+        user_count = User.query.count()
+        if user_count > 0:
+            print(f"База даних вже містить дані ({user_count} користувачів)")
+            choice = input("Видалити всі дані та створити заново? (y/n): ").lower().strip()
+
+            if choice in ['y', 'yes', 'так', 'т']:
+                print("Видаляємо всі дані...")
+                # Видалити всі дані
+                Comment.query.delete()
+                Post.query.delete()
+                User.query.delete()
+                db.session.commit()
+                print("Дані видалено!")
+            else:
+                print("Операція скасована. Дані залишаються без змін.")
+                return
+
+        print("Створюємо тестові дані...")
 
         # Створити тестових користувачів
         user1 = User(username='admin', email='admin@example.com')
-        user1.set_password('123456')  # Використати хешування пароля
+        user1.set_password('123456')
 
         user2 = User(username='admin2', email='admin2@example.com')
         user2.set_password('123456')
@@ -96,11 +111,13 @@ def init_database():
         db.session.commit()
 
         print("База даних успішно ініціалізована з тестовими даними!")
-        print("Тестові користувачі:")
+        print("\nТестові користувачі:")
         print("- admin:admin@example.com (пароль: 123456)")
         print("- admin2:admin2@example.com (пароль: 123456)")
         print("- user1:user1@example.com (пароль: 123456)")
         print("- blogger:blogger@example.com (пароль: 123456)")
+        print(
+            f"\nСтворено: {User.query.count()} користувачів, {Post.query.count()} постів, {Comment.query.count()} коментарів")
 
 
 if __name__ == '__main__':
