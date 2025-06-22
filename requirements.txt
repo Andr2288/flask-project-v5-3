@@ -1,12 +1,39 @@
+# Core Flask
 Flask==3.0.0
 Flask-SQLAlchemy==3.1.1
 Flask-WTF==1.2.1
 Flask-JWT-Extended==4.6.0
 Flask-Migrate==4.0.5
+
+# Database
 PyMySQL==1.1.0
 cryptography==41.0.7
+
+# Forms and validation
 WTForms==3.1.1
 email-validator==2.1.0
+
+# APIs
+Flask-RESTful==0.3.10
+Flask-Potion==0.16.0
+
+# SOAP - Skip spyne for Python 3.13
+# spyne==2.14.0  # Not compatible with Python 3.13
+# lxml==4.9.3
+
+# Async
+aiohttp==3.9.1
+aiofiles==23.2.0
+
+# Maps
 folium==0.15.0
+
+# Templates and utilities
 Jinja2==3.1.2
 python-dotenv==1.0.0
+
+# Development
+Werkzeug==3.0.1
+
+# Optional for WebSocket testing
+websockets==12.0
