@@ -6,9 +6,6 @@ from datetime import datetime
 def init_database():
     """Ініціалізує базу даних з тестовими даними"""
     with app.app_context():
-        # Створити таблиці якщо їх немає
-        db.create_all()
-
         # Перевірити чи є дані
         user_count = User.query.count()
         if user_count > 0:
@@ -42,72 +39,70 @@ def init_database():
         user4 = User(username='blogger', email='blogger@example.com')
         user4.set_password('123456')
 
-        db.session.add(user1)
-        db.session.add(user2)
-        db.session.add(user3)
-        db.session.add(user4)
+        db.session.add_all([user1, user2, user3, user4])
         db.session.commit()
 
         # Створити тестові пости
-        post1 = Post(
-            title='Ласкаво просимо до нашого блогу!',
-            content='Це перший пост у нашому блозі. Тут ми будемо ділитися цікавими думками та ідеями.',
-            user_id=user1.id
-        )
+        posts_data = [
+            {
+                'title': 'Ласкаво просимо до нашого блогу!',
+                'content': 'Це перший пост у нашому блозі. Тут ми будемо ділитися цікавими думками та ідеями. Також тепер у нас є інтерактивні карти!',
+                'user_id': user1.id
+            },
+            {
+                'title': 'Про Flask та веб-розробку',
+                'content': 'Flask - це мікрофреймворк для Python, який дозволяє швидко створювати веб-додатки. Він простий у використанні та дуже гнучкий. З Flask-Migrate можна легко керувати змінами в базі даних.',
+                'user_id': user4.id
+            },
+            {
+                'title': 'Інтерактивні карти з Folium',
+                'content': 'Folium дозволяє створювати красиві інтерактивні карти безпосередньо в Python. Це дуже корисно для візуалізації географічних даних.',
+                'user_id': user3.id
+            },
+            {
+                'title': 'Міграції Flask-Migrate',
+                'content': 'Flask-Migrate спрощує управління змінами схеми бази даних. Тепер можна легко оновлювати структуру БД без втрати даних.',
+                'user_id': user2.id
+            }
+        ]
 
-        post2 = Post(
-            title='Про Flask та веб-розробку',
-            content='Flask - це мікрофреймворк для Python, який дозволяє швидко створювати веб-додатки. Він простий у використанні та дуже гнучкий.',
-            user_id=user4.id
-        )
+        for post_data in posts_data:
+            post = Post(**post_data)
+            db.session.add(post)
 
-        post3 = Post(
-            title='Майбутнє веб-технологій',
-            content='Веб-технології розвиваються дуже швидко. Кожного дня з\'являються нові інструменти та підходи до розробки.',
-            user_id=user3.id
-        )
-
-        post4 = Post(
-            title='Новий пост від admin2',
-            content='Це пост створений користувачем admin2 для тестування системи.',
-            user_id=user2.id
-        )
-
-        db.session.add(post1)
-        db.session.add(post2)
-        db.session.add(post3)
-        db.session.add(post4)
         db.session.commit()
 
+        # Отримати створені пости
+        posts = Post.query.all()
+
         # Створити тестові коментарі
-        comment1 = Comment(
-            content='Дуже цікавий пост! Дякую за інформацію.',
-            post_id=post1.id,
-            user_id=user3.id
-        )
+        comments_data = [
+            {
+                'content': 'Дуже цікавий пост! Дякую за інформацію про нові можливості.',
+                'post_id': posts[0].id,
+                'user_id': user3.id
+            },
+            {
+                'content': 'Згоден! Flask справді простий у використанні. Migrate теж дуже корисний.',
+                'post_id': posts[1].id,
+                'user_id': user1.id
+            },
+            {
+                'content': 'Folium виглядає дуже цікаво! Спробую використати в своєму проекті.',
+                'post_id': posts[2].id,
+                'user_id': user4.id
+            },
+            {
+                'content': 'Відмінний пост про міграції! Дуже корисна інформація.',
+                'post_id': posts[3].id,
+                'user_id': user1.id
+            }
+        ]
 
-        comment2 = Comment(
-            content='Згоден! Flask справді простий у використанні.',
-            post_id=post2.id,
-            user_id=user1.id
-        )
+        for comment_data in comments_data:
+            comment = Comment(**comment_data)
+            db.session.add(comment)
 
-        comment3 = Comment(
-            content='Було б цікаво почитати більше про нові технології.',
-            post_id=post3.id,
-            user_id=user4.id
-        )
-
-        comment4 = Comment(
-            content='Відмінний пост від admin2!',
-            post_id=post4.id,
-            user_id=user1.id
-        )
-
-        db.session.add(comment1)
-        db.session.add(comment2)
-        db.session.add(comment3)
-        db.session.add(comment4)
         db.session.commit()
 
         print("База даних успішно ініціалізована з тестовими даними!")

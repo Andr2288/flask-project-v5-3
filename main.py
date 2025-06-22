@@ -1,8 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_wtf.csrf import CSRFProtect
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
+from flask_migrate import Migrate
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
+import folium
 from models import db, User, Post, Comment
 from forms import LoginForm, RegisterForm, PostForm, CommentForm
 
@@ -14,6 +16,7 @@ app.config['JWT_SECRET_KEY'] = 'jwt-secret-key-change-in-production'
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
 
 db.init_app(app)
+migrate = Migrate(app, db)
 csrf = CSRFProtect(app)
 jwt = JWTManager(app)
 
@@ -36,6 +39,31 @@ def login_required(f):
 def index():
     posts = Post.query.order_by(Post.created_at.desc()).limit(5).all()
     return render_template('index.html', posts=posts)
+
+
+@app.route('/map')
+def map_view():
+    """Показати карту з використанням folium"""
+    # Створюємо карту з центром у Києві
+    m = folium.Map(location=[50.4501, 30.5234], zoom_start=10)
+
+    # Додаємо маркери для прикладу
+    folium.Marker(
+        [50.4501, 30.5234],
+        popup="Київ - столиця України",
+        tooltip="Натисни для інформації"
+    ).add_to(m)
+
+    folium.Marker(
+        [49.2331, 28.4682],
+        popup="Вінниця",
+        tooltip="Вінниця"
+    ).add_to(m)
+
+    # Конвертуємо карту в HTML
+    map_html = m._repr_html_()
+
+    return render_template('map.html', map_html=map_html)
 
 
 @app.route('/login', methods=['GET', 'POST'])
