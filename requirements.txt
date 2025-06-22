@@ -16,6 +16,10 @@ email-validator==2.1.0
 # APIs
 Flask-RESTful==0.3.10
 
+# WebSocket with Flask
+Flask-SocketIO==5.3.6
+python-socketio==5.10.0
+
 # Async
 aiohttp==3.9.1
 aiofiles==23.2.0
@@ -29,6 +33,3 @@ python-dotenv==1.0.0
 
 # Development
 Werkzeug==3.0.1
-
-# Optional for WebSocket testing
-websockets==12.0

@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
 Test script to verify all technologies are working correctly
-Essential technologies only - no SOAP
+Updated for Flask-SocketIO instead of aiohttp WebSocket
 """
 
 import requests
 import json
 import asyncio
 import aiohttp
-import websockets
 import time
 import sys
 
@@ -44,6 +43,9 @@ class TechnologyTester:
 
             response = requests.get(f"{self.base_url}/map")
             self.print_result("Folium Map Integration", response.status_code == 200)
+
+            response = requests.get(f"{self.base_url}/websocket")
+            self.print_result("Flask-SocketIO Test Page", response.status_code == 200)
 
         except Exception as e:
             self.print_result("Flask Basic", False, str(e))
@@ -90,10 +92,10 @@ class TechnologyTester:
                                               f"Status: {data.get('status')}")
                         else:
                             self.print_result("Async - Health Check", False,
-                                            f"Status: {resp.status}")
+                                              f"Status: {resp.status}")
                 except Exception as e:
                     self.print_result("Async - Health Check", False,
-                                    f"Connection failed: {str(e)}")
+                                      f"Connection failed: {str(e)}")
 
                 # Test async posts
                 try:
@@ -104,19 +106,19 @@ class TechnologyTester:
                                               f"Got {data.get('total', 0)} posts")
                         else:
                             self.print_result("Async - Posts Endpoint", False,
-                                            f"Status: {resp.status}")
+                                              f"Status: {resp.status}")
                 except Exception as e:
                     self.print_result("Async - Posts Endpoint", False,
-                                    f"Connection failed: {str(e)}")
+                                      f"Connection failed: {str(e)}")
 
                 # Test analytics
                 try:
                     async with session.get(f"{self.async_url}/async/analytics") as resp:
                         self.print_result("Async - Analytics", resp.status == 200,
-                                        f"Status: {resp.status}")
+                                          f"Status: {resp.status}")
                 except Exception as e:
                     self.print_result("Async - Analytics", False,
-                                    f"Connection failed: {str(e)}")
+                                      f"Connection failed: {str(e)}")
 
                 # Test batch processing
                 try:
@@ -129,48 +131,55 @@ class TechnologyTester:
                                               f"Processed {data.get('total_processed', 0)} items")
                         else:
                             self.print_result("Async - Batch Processing", False,
-                                            f"Status: {resp.status}")
+                                              f"Status: {resp.status}")
                 except Exception as e:
                     self.print_result("Async - Batch Processing", False,
-                                    f"Connection failed: {str(e)}")
+                                      f"Connection failed: {str(e)}")
 
         except Exception as e:
             self.print_result("Async Service", False, f"Service unavailable: {str(e)}")
 
-    def test_websocket(self):
-        """Test WebSocket functionality"""
-        self.print_header("WEBSOCKET")
+    def test_flask_socketio(self):
+        """Test Flask-SocketIO functionality"""
+        self.print_header("FLASK-SOCKETIO")
 
         try:
-            import websockets
+            import socketio
 
-            async def test_ws():
-                try:
-                    uri = f"ws://localhost:8080/async/ws"
-                    # Add timeout
-                    async with websockets.connect(uri, timeout=5) as websocket:
-                        # Send test message
-                        test_msg = {"message": "test", "type": "ping"}
-                        await websocket.send(json.dumps(test_msg))
+            # Create a Socket.IO client
+            sio = socketio.SimpleClient()
 
-                        # Receive response with timeout
-                        response = await asyncio.wait_for(websocket.recv(), timeout=5)
-                        data = json.loads(response)
+            # Try to connect
+            try:
+                sio.connect(f"{self.base_url}")
+                self.print_result("Flask-SocketIO - Connection", True, "Connected successfully")
 
-                        return data.get('type') == 'echo'
+                # Test ping
+                sio.emit('ping')
+                event = sio.receive(timeout=5)
+                if event[0] == 'pong':
+                    self.print_result("Flask-SocketIO - Ping/Pong", True, "Pong received")
+                else:
+                    self.print_result("Flask-SocketIO - Ping/Pong", False, f"Unexpected event: {event[0]}")
 
-                except Exception as e:
-                    print(f"WebSocket error: {e}")
-                    return False
+                # Test message
+                test_message = "Hello Flask-SocketIO!"
+                sio.emit('message', test_message)
+                event = sio.receive(timeout=5)
+                if event[0] == 'message_response':
+                    self.print_result("Flask-SocketIO - Message Echo", True, "Echo received")
+                else:
+                    self.print_result("Flask-SocketIO - Message Echo", False, f"Unexpected event: {event[0]}")
 
-            # Run WebSocket test
-            result = asyncio.run(test_ws())
-            self.print_result("WebSocket - Echo Test", result)
+                sio.disconnect()
+
+            except Exception as e:
+                self.print_result("Flask-SocketIO - Connection", False, f"Connection failed: {str(e)}")
 
         except ImportError:
-            self.print_result("WebSocket", False, "websockets library not installed")
+            self.print_result("Flask-SocketIO", False, "python-socketio library not installed")
         except Exception as e:
-            self.print_result("WebSocket", False, str(e))
+            self.print_result("Flask-SocketIO", False, str(e))
 
     def test_jwt_authentication(self):
         """Test JWT authentication"""
@@ -217,7 +226,7 @@ class TechnologyTester:
                     self.print_result("JWT - Login", False, "No token in response")
             else:
                 self.print_result("JWT - Login", False,
-                                f"Status: {response.status_code}, Response: {response.text}")
+                                  f"Status: {response.status_code}, Response: {response.text}")
 
         except Exception as e:
             self.print_result("JWT Authentication", False, str(e))
@@ -247,7 +256,7 @@ class TechnologyTester:
     def run_all_tests(self):
         """Run all technology tests"""
         print("FLASK CRUD APP - ESSENTIAL TECHNOLOGY VERIFICATION")
-        print("Testing essential technologies only...")
+        print("Testing essential technologies with Flask-SocketIO...")
 
         # Wait for services to be ready
         print("\nWaiting for services to be ready...")
@@ -260,7 +269,7 @@ class TechnologyTester:
         # Run async tests
         asyncio.run(self.test_async_service())
 
-        self.test_websocket()
+        self.test_flask_socketio()
         self.test_jwt_authentication()
         self.test_database_technologies()
 

@@ -15,6 +15,7 @@ from models import db, User, Post, Comment
 from forms import LoginForm, RegisterForm, PostForm, CommentForm
 from api_resources import api as restful_api
 from async_service import run_async_server
+from websocket_service import init_socketio
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
@@ -32,6 +33,10 @@ jwt = JWTManager(app)
 # Initialize Flask-RESTful
 restful_api.init_app(app)
 print("✓ Flask-RESTful API initialized")
+
+# Initialize Flask-SocketIO
+socketio = init_socketio(app)
+print("✓ Flask-SocketIO initialized")
 
 
 def login_required(f):
@@ -90,6 +95,7 @@ def test_technologies():
             'Flask-JWT-Extended': 'Authentication - ✓',
             'Flask-RESTful': 'REST API - ✓ (check /api/posts)',
             'Flask-Migrate': 'Database migrations - ✓',
+            'Flask-SocketIO': 'WebSocket - ✓ (check /websocket)',
             'Jinja2': 'Template engine - ✓',
             'Folium': 'Interactive maps - ✓ (check /map)',
             'aiohttp': 'Async HTTP - ✓ (running on port 8080)',
@@ -101,7 +107,8 @@ def test_technologies():
                 'Posts': '/posts',
                 'Login': '/login',
                 'Register': '/register',
-                'Map': '/map'
+                'Map': '/map',
+                'WebSocket Test': '/websocket'
             },
             'REST API (Flask-RESTful)': {
                 'Users': '/api/users',
@@ -113,8 +120,11 @@ def test_technologies():
                 'Posts': '/async/posts',
                 'External Data': '/async/external',
                 'Analytics': '/async/analytics',
-                'WebSocket': '/async/ws',
                 'Health': '/async/health'
+            },
+            'WebSocket (Flask-SocketIO)': {
+                'Test Page': '/websocket',
+                'Socket.IO endpoint': '/socket.io/'
             }
         }
     }
@@ -150,6 +160,12 @@ def map_view():
     map_html = m._repr_html_()
 
     return render_template('map.html', map_html=map_html)
+
+
+@app.route('/websocket')
+def websocket_test():
+    """WebSocket test page"""
+    return render_template('websocket_test.html')
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -331,7 +347,9 @@ if __name__ == '__main__':
     print("=" * 60)
     print("Main Flask app: http://localhost:5000")
     print("API endpoints: http://localhost:5000/api/test/technologies")
+    print("WebSocket test: http://localhost:5000/websocket")
     print("Async service: http://localhost:8080")
     print("=" * 60)
 
-    app.run(debug=True, use_reloader=False)
+    # Run with SocketIO support
+    socketio.run(app, debug=True, use_reloader=False, allow_unsafe_werkzeug=True)
