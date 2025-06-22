@@ -14,7 +14,6 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from models import db, User, Post, Comment
 from forms import LoginForm, RegisterForm, PostForm, CommentForm
 from api_resources import api as restful_api
-from potion_api import create_potion_api, add_search_routes
 from async_service import run_async_server
 
 # Try to import SOAP service, make it optional
@@ -38,6 +37,19 @@ except ImportError as e:
         SOAP_TYPE = None
         wsgi_soap_app = None
 
+# Try to import Flask-Potion, make it optional
+try:
+    from potion_api import create_potion_api, add_search_routes
+
+    POTION_AVAILABLE = True
+    print("✓ Flask-Potion loaded successfully")
+except ImportError as e:
+    print(f"Warning: Flask-Potion not available - {e}")
+    print("This is due to Werkzeug compatibility. Potion features will be disabled.")
+    POTION_AVAILABLE = False
+    create_potion_api = None
+    add_search_routes = None
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:1234567890@localhost/flask_crud'
@@ -54,10 +66,20 @@ jwt = JWTManager(app)
 # Initialize Flask-RESTful
 restful_api.init_app(app)
 
-# Initialize Flask-Potion
-potion_api = create_potion_api()
-potion_api.init_app(app)
-add_search_routes(potion_api)
+# Initialize Flask-Potion if available
+if POTION_AVAILABLE:
+    potion_api = create_potion_api()
+    potion_api.init_app(app)
+    add_search_routes(potion_api)
+    print("✓ Flask-Potion API initialized")
+else:
+    # Use alternative API when Potion is not available
+    from alternative_api import alternative_api
+
+    app.register_blueprint(alternative_api)
+    potion_api = None
+    print("✓ Alternative API initialized (Flask-Potion replacement)")
+    print("⚠️  Flask-Potion API disabled (compatibility issue)")
 
 # Mount SOAP service if available
 if SOAP_AVAILABLE:
@@ -122,6 +144,22 @@ def test_technologies():
         soap_status = "❌ (Not available)"
         soap_url = "Not available"
 
+    potion_status = "✓" if POTION_AVAILABLE else "✓ (Alternative implementation)"
+    potion_endpoints = {
+        'Users': '/users',
+        'Posts': '/posts',
+        'Comments': '/comments',
+        'Stats': '/stats',
+        'Search Posts': '/search/posts?q=query',
+        'Search Users': '/search/users?q=query'
+    } if POTION_AVAILABLE else {
+        'Users': '/alt/users',
+        'Posts': '/alt/posts',
+        'Search': '/alt/search?q=query',
+        'Stats': '/alt/stats',
+        'Health': '/alt/health'
+    }
+
     return {
         'message': 'Technologies integration status',
         'technologies': {
@@ -132,7 +170,7 @@ def test_technologies():
             'Flask-JWT-Extended': 'Authentication - ✓',
             'Flask-RESTful': 'REST API - ✓ (check /api/posts)',
             'Flask-SOAP': f'SOAP service - {soap_status}',
-            'Flask-Potion': 'Advanced REST API - ✓ (check /users, /posts)',
+            'Flask-Potion': f'Advanced REST API - {potion_status}',
             'Flask-Migrate': 'Database migrations - ✓',
             'Jinja2': 'Template engine - ✓',
             'Folium': 'Interactive maps - ✓ (check /map)',
@@ -152,14 +190,7 @@ def test_technologies():
                 'Posts': '/api/posts',
                 'Auth': '/api/auth/login'
             },
-            'Potion API': {
-                'Users': '/users',
-                'Posts': '/posts',
-                'Comments': '/comments',
-                'Stats': '/stats',
-                'Search Posts': '/search/posts?q=query',
-                'Search Users': '/search/users?q=query'
-            },
+            'Potion API': potion_endpoints,
             'SOAP Service': {
                 'WSDL': soap_url,
                 'Endpoint': soap_url.replace('?wsdl', '') if soap_url != 'Not available' else 'Not available'
@@ -388,6 +419,13 @@ if __name__ == '__main__':
             print("SOAP service: http://localhost:5000/simple_soap/soap?wsdl")
     else:
         print("SOAP service: Not available")
+
+    if POTION_AVAILABLE:
+        print("Potion API: http://localhost:5000/users (and other endpoints)")
+    else:
+        print("Alternative API: http://localhost:5000/alt/users (Potion replacement)")
+        print("Alternative features: /alt/search, /alt/stats, etc.")
+
     print("Async service: http://localhost:8080")
     print("=" * 60)
 
