@@ -1,13 +1,14 @@
 """
 Simple SOAP-like service using Flask
 Alternative when spyne is not compatible
+Fixed version with better XML parsing
 """
 
 from flask import Blueprint, request, Response
 from models import db, User, Post, Comment
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
-
+import re
 
 simple_soap = Blueprint('simple_soap', __name__)
 
@@ -48,29 +49,65 @@ def create_soap_fault(fault_code, fault_string):
 def parse_soap_request(xml_data):
     """Parse SOAP request to extract method and parameters"""
     try:
+        # Clean up the XML data
+        xml_data = xml_data.strip()
+
+        # Parse XML
         root = ET.fromstring(xml_data)
 
-        # Find the method name (first child of Body)
-        body = root.find('.//{http://schemas.xmlsoap.org/soap/envelope/}Body')
+        # Find the method - look for Body element in different ways
+        body = None
+
+        # Try different namespace patterns
+        body_patterns = [
+            './/{http://schemas.xmlsoap.org/soap/envelope/}Body',
+            './/Body',
+            './/*[local-name()="Body"]'
+        ]
+
+        for pattern in body_patterns:
+            body = root.find(pattern)
+            if body is not None:
+                break
+
         if body is None:
+            print("❌ Could not find SOAP Body element")
             return None, None
 
         # Get first child of body (the method)
-        method_element = list(body)[0] if len(list(body)) > 0 else None
+        method_element = None
+        for child in body:
+            if child.tag.lower() not in ['soap:fault', 'fault']:
+                method_element = child
+                break
+
         if method_element is None:
+            print("❌ Could not find method element in SOAP Body")
             return None, None
 
-        method_name = method_element.tag.split('}')[-1] if '}' in method_element.tag else method_element.tag
+        # Extract method name (remove namespace if present)
+        method_name = method_element.tag
+        if '}' in method_name:
+            method_name = method_name.split('}')[-1]
+
+        print(f"📋 Found SOAP method: {method_name}")
 
         # Extract parameters
         params = {}
         for child in method_element:
-            param_name = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-            params[param_name] = child.text
+            param_name = child.tag
+            if '}' in param_name:
+                param_name = param_name.split('}')[-1]
+            params[param_name] = child.text if child.text else ""
 
+        print(f"📋 Found parameters: {params}")
         return method_name, params
 
+    except ET.ParseError as e:
+        print(f"❌ XML Parse Error: {e}")
+        return None, None
     except Exception as e:
+        print(f"❌ SOAP Parse Error: {e}")
         return None, None
 
 
@@ -209,10 +246,12 @@ def soap_handler():
     """Handle SOAP requests"""
     try:
         xml_data = request.get_data(as_text=True)
+        print(f"📥 Received SOAP request: {xml_data[:200]}...")
+
         method_name, params = parse_soap_request(xml_data)
 
         if not method_name:
-            fault_xml = create_soap_fault('Client', 'Invalid SOAP request')
+            fault_xml = create_soap_fault('Client', 'Invalid SOAP request - could not parse method')
             return Response(fault_xml, mimetype='text/xml', status=400)
 
         # Handle different SOAP methods
@@ -227,6 +266,7 @@ def soap_handler():
             return Response(fault_xml, mimetype='text/xml', status=400)
 
     except Exception as e:
+        print(f"❌ SOAP Handler Error: {e}")
         fault_xml = create_soap_fault('Server', f'Internal error: {str(e)}')
         return Response(fault_xml, mimetype='text/xml', status=500)
 
@@ -237,14 +277,18 @@ def handle_authenticate_user(params):
         username = params.get('username', '')
         password = params.get('password', '')
 
+        print(f"🔐 Authenticating user: {username}")
+
         if not username or not password:
             result = "Error: Username and password required"
         else:
             user = User.query.filter_by(username=username).first()
             if user and user.check_password(password):
                 result = f"Authentication successful for user: {username}"
+                print(f"✅ Authentication successful for: {username}")
             else:
                 result = "Authentication failed: Invalid credentials"
+                print(f"❌ Authentication failed for: {username}")
 
         # Create response XML
         response = ET.Element('authenticateUserResponse')
@@ -257,6 +301,7 @@ def handle_authenticate_user(params):
         return Response(soap_response, mimetype='text/xml')
 
     except Exception as e:
+        print(f"❌ Auth error: {e}")
         fault_xml = create_soap_fault('Server', f'Authentication error: {str(e)}')
         return Response(fault_xml, mimetype='text/xml', status=500)
 
@@ -264,6 +309,7 @@ def handle_authenticate_user(params):
 def handle_get_all_users():
     """Handle get all users request"""
     try:
+        print("👥 Getting all users...")
         users = User.query.all()
 
         users_info = []
@@ -271,6 +317,7 @@ def handle_get_all_users():
             users_info.append(f"ID: {user.id}, Username: {user.username}, Email: {user.email}, Posts: {len(user.posts)}")
 
         users_text = "; ".join(users_info) if users_info else "No users found"
+        print(f"✅ Found {len(users)} users")
 
         # Create response XML
         response = ET.Element('getAllUsersResponse')
@@ -283,6 +330,7 @@ def handle_get_all_users():
         return Response(soap_response, mimetype='text/xml')
 
     except Exception as e:
+        print(f"❌ Get users error: {e}")
         fault_xml = create_soap_fault('Server', f'Error getting users: {str(e)}')
         return Response(fault_xml, mimetype='text/xml', status=500)
 
@@ -290,11 +338,13 @@ def handle_get_all_users():
 def handle_get_statistics():
     """Handle get statistics request"""
     try:
+        print("📊 Getting statistics...")
         users_count = User.query.count()
         posts_count = Post.query.count()
         comments_count = Comment.query.count()
 
         stats_text = f"Blog Statistics: {users_count} users, {posts_count} posts, {comments_count} comments"
+        print(f"✅ Stats: {stats_text}")
 
         # Create response XML
         response = ET.Element('getStatisticsResponse')
@@ -307,5 +357,25 @@ def handle_get_statistics():
         return Response(soap_response, mimetype='text/xml')
 
     except Exception as e:
+        print(f"❌ Get statistics error: {e}")
         fault_xml = create_soap_fault('Server', f'Error getting statistics: {str(e)}')
         return Response(fault_xml, mimetype='text/xml', status=500)
+
+
+# Test endpoint to verify SOAP service is working
+@simple_soap.route('/test')
+def test_soap():
+    """Test endpoint for SOAP service"""
+    return {
+        'message': 'Simple SOAP service is running',
+        'endpoints': {
+            'WSDL': '/simple_soap/soap?wsdl',
+            'SOAP': '/simple_soap/soap (POST)',
+            'Test': '/simple_soap/test (GET)'
+        },
+        'available_methods': [
+            'authenticateUser',
+            'getAllUsers',
+            'getStatistics'
+        ]
+    }

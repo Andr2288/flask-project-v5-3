@@ -15,11 +15,6 @@ email-validator==2.1.0
 
 # APIs
 Flask-RESTful==0.3.10
-Flask-Potion==0.16.0
-
-# SOAP - Skip spyne for Python 3.13
-# spyne==2.14.0  # Not compatible with Python 3.13
-# lxml==4.9.3
 
 # Async
 aiohttp==3.9.1

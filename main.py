@@ -8,47 +8,14 @@ from datetime import datetime, timedelta
 import folium
 import threading
 import asyncio
-from werkzeug.middleware.dispatcher import DispatcherMiddleware
+import time
 
 # Import our modules
 from models import db, User, Post, Comment
 from forms import LoginForm, RegisterForm, PostForm, CommentForm
 from api_resources import api as restful_api
 from async_service import run_async_server
-
-# Try to import SOAP service, make it optional
-try:
-    from soap_service import wsgi_soap_app
-
-    SOAP_AVAILABLE = True
-    SOAP_TYPE = "spyne"
-except ImportError as e:
-    print(f"Warning: Spyne SOAP service not available - {e}")
-    print("Using simple SOAP service instead...")
-    try:
-        from simple_soap_service import simple_soap
-
-        SOAP_AVAILABLE = True
-        SOAP_TYPE = "simple"
-        wsgi_soap_app = None
-    except ImportError:
-        print("Error: Could not load any SOAP service")
-        SOAP_AVAILABLE = False
-        SOAP_TYPE = None
-        wsgi_soap_app = None
-
-# Try to import Flask-Potion, make it optional
-try:
-    from potion_api import create_potion_api, add_search_routes
-
-    POTION_AVAILABLE = True
-    print("✓ Flask-Potion loaded successfully")
-except ImportError as e:
-    print(f"Warning: Flask-Potion not available - {e}")
-    print("This is due to Werkzeug compatibility. Potion features will be disabled.")
-    POTION_AVAILABLE = False
-    create_potion_api = None
-    add_search_routes = None
+from simple_soap_service import simple_soap
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
@@ -66,30 +33,9 @@ jwt = JWTManager(app)
 # Initialize Flask-RESTful
 restful_api.init_app(app)
 
-# Initialize Flask-Potion if available
-if POTION_AVAILABLE:
-    potion_api = create_potion_api()
-    potion_api.init_app(app)
-    add_search_routes(potion_api)
-    print("✓ Flask-Potion API initialized")
-else:
-    # Use alternative API when Potion is not available
-    from alternative_api import alternative_api
-
-    app.register_blueprint(alternative_api)
-    potion_api = None
-    print("✓ Alternative API initialized (Flask-Potion replacement)")
-    print("⚠️  Flask-Potion API disabled (compatibility issue)")
-
-# Mount SOAP service if available
-if SOAP_AVAILABLE:
-    if SOAP_TYPE == "spyne" and wsgi_soap_app:
-        app.wsgi_app = DispatcherMiddleware(
-            app.wsgi_app,
-            {'/soap': wsgi_soap_app}
-        )
-    elif SOAP_TYPE == "simple":
-        app.register_blueprint(simple_soap, url_prefix='/simple_soap')
+# Register Simple SOAP service
+app.register_blueprint(simple_soap, url_prefix='/simple_soap')
+print("✓ Simple SOAP service initialized")
 
 
 def login_required(f):
@@ -109,57 +55,37 @@ def login_required(f):
 @app.route('/api/auth/login', methods=['POST'])
 def api_login():
     """JWT authentication for API"""
-    data = request.get_json()
+    try:
+        data = request.get_json()
 
-    if not data or 'username' not in data or 'password' not in data:
-        return {'message': 'Username and password required'}, 400
+        if not data:
+            return {'message': 'JSON data required'}, 400
 
-    user = User.query.filter_by(username=data['username']).first()
-    if user and user.check_password(data['password']):
-        access_token = create_access_token(identity=user.id)
-        return {
-            'access_token': access_token,
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email
+        if 'username' not in data or 'password' not in data:
+            return {'message': 'Username and password required'}, 400
+
+        user = User.query.filter_by(username=data['username']).first()
+        if user and user.check_password(data['password']):
+            access_token = create_access_token(identity=user.id)
+            return {
+                'access_token': access_token,
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email
+                }
             }
-        }
-    else:
-        return {'message': 'Invalid credentials'}, 401
+        else:
+            return {'message': 'Invalid credentials'}, 401
+
+    except Exception as e:
+        return {'message': f'Login error: {str(e)}'}, 500
 
 
 # API endpoint for testing different technologies
 @app.route('/api/test/technologies')
 def test_technologies():
     """Test endpoint to show all integrated technologies"""
-    if SOAP_AVAILABLE:
-        if SOAP_TYPE == "spyne":
-            soap_status = "✓ (Full spyne implementation)"
-            soap_url = "/soap?wsdl"
-        else:
-            soap_status = "✓ (Simple XML implementation)"
-            soap_url = "/simple_soap/soap?wsdl"
-    else:
-        soap_status = "❌ (Not available)"
-        soap_url = "Not available"
-
-    potion_status = "✓" if POTION_AVAILABLE else "✓ (Alternative implementation)"
-    potion_endpoints = {
-        'Users': '/users',
-        'Posts': '/posts',
-        'Comments': '/comments',
-        'Stats': '/stats',
-        'Search Posts': '/search/posts?q=query',
-        'Search Users': '/search/users?q=query'
-    } if POTION_AVAILABLE else {
-        'Users': '/alt/users',
-        'Posts': '/alt/posts',
-        'Search': '/alt/search?q=query',
-        'Stats': '/alt/stats',
-        'Health': '/alt/health'
-    }
-
     return {
         'message': 'Technologies integration status',
         'technologies': {
@@ -169,8 +95,7 @@ def test_technologies():
             'Flask-WTF': 'Forms - ✓',
             'Flask-JWT-Extended': 'Authentication - ✓',
             'Flask-RESTful': 'REST API - ✓ (check /api/posts)',
-            'Flask-SOAP': f'SOAP service - {soap_status}',
-            'Flask-Potion': f'Advanced REST API - {potion_status}',
+            'Simple-SOAP': 'SOAP service - ✓ (Simple XML implementation)',
             'Flask-Migrate': 'Database migrations - ✓',
             'Jinja2': 'Template engine - ✓',
             'Folium': 'Interactive maps - ✓ (check /map)',
@@ -190,10 +115,9 @@ def test_technologies():
                 'Posts': '/api/posts',
                 'Auth': '/api/auth/login'
             },
-            'Potion API': potion_endpoints,
             'SOAP Service': {
-                'WSDL': soap_url,
-                'Endpoint': soap_url.replace('?wsdl', '') if soap_url != 'Not available' else 'Not available'
+                'WSDL': '/simple_soap/soap?wsdl',
+                'Endpoint': '/simple_soap/soap'
             },
             'Async Service (aiohttp)': {
                 'Base URL': 'http://localhost:8080',
@@ -390,14 +314,21 @@ def start_async_server():
     """Start the async server in a separate thread"""
 
     def run_async():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(run_async_server())
-        loop.run_forever()
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            print("🚀 Starting async server...")
+            loop.run_until_complete(run_async_server())
+            loop.run_forever()
+        except Exception as e:
+            print(f"❌ Async server error: {e}")
 
     thread = threading.Thread(target=run_async, daemon=True)
     thread.start()
-    print("Async server thread started")
+    print("✓ Async server thread started")
+
+    # Give it time to start
+    time.sleep(2)
 
 
 if __name__ == '__main__':
@@ -408,24 +339,11 @@ if __name__ == '__main__':
     start_async_server()
 
     print("\n" + "=" * 60)
-    print("FLASK CRUD APP WITH ALL TECHNOLOGIES")
+    print("FLASK CRUD APP - CORE TECHNOLOGIES")
     print("=" * 60)
     print("Main Flask app: http://localhost:5000")
     print("API endpoints: http://localhost:5000/api/test/technologies")
-    if SOAP_AVAILABLE:
-        if SOAP_TYPE == "spyne":
-            print("SOAP service: http://localhost:5000/soap?wsdl")
-        else:
-            print("SOAP service: http://localhost:5000/simple_soap/soap?wsdl")
-    else:
-        print("SOAP service: Not available")
-
-    if POTION_AVAILABLE:
-        print("Potion API: http://localhost:5000/users (and other endpoints)")
-    else:
-        print("Alternative API: http://localhost:5000/alt/users (Potion replacement)")
-        print("Alternative features: /alt/search, /alt/stats, etc.")
-
+    print("Simple SOAP service: http://localhost:5000/simple_soap/soap?wsdl")
     print("Async service: http://localhost:8080")
     print("=" * 60)
 
