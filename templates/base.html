@@ -10,22 +10,42 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">Flask CRUD</a>
-            <div class="navbar-nav">
+
+            <div class="navbar-nav me-auto">
                 <a class="nav-link" href="{{ url_for('index') }}">Головна</a>
-                <a class="nav-link" href="{{ url_for('users') }}">Користувачі</a>
                 <a class="nav-link" href="{{ url_for('posts') }}">Пости</a>
+                {% if session.user_id %}
+                    <a class="nav-link" href="{{ url_for('users') }}">Користувачі</a>
+                {% endif %}
+            </div>
+
+            <div class="navbar-nav">
+                {% if session.user_id %}
+                    <span class="navbar-text me-3">Привіт, {{ session.username }}!</span>
+                    <a class="nav-link" href="{{ url_for('logout') }}">Вихід</a>
+                {% else %}
+                    <a class="nav-link" href="{{ url_for('login') }}">Вхід</a>
+                    <a class="nav-link" href="{{ url_for('register') }}">Реєстрація</a>
+                {% endif %}
             </div>
         </div>
     </nav>
 
     <div class="container mt-4">
-        {% with messages = get_flashed_messages() %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
+                {% for category, message in messages %}
+                    {% if category == 'error' %}
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endif %}
                 {% endfor %}
             {% endif %}
         {% endwith %}

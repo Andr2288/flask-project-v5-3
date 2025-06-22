@@ -29,6 +29,7 @@
                         <td>
                             <a href="{{ url_for('edit_user', id=user.id) }}" class="btn btn-sm btn-warning">Редагувати</a>
                             <form method="POST" action="{{ url_for('delete_user', id=user.id) }}" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                 <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Ви впевнені?')">Видалити</button>
                             </form>
                         </td>

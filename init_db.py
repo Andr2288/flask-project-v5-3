@@ -1,4 +1,5 @@
-from main import app, db, User, Post, Comment
+from main import app
+from models import db, User, Post, Comment
 from datetime import datetime
 
 
@@ -15,12 +16,21 @@ def init_database():
 
         # Створити тестових користувачів
         user1 = User(username='admin', email='admin@example.com')
-        user2 = User(username='user1', email='user1@example.com')
-        user3 = User(username='blogger', email='blogger@example.com')
+        user1.set_password('123456')  # Використати хешування пароля
+
+        user2 = User(username='admin2', email='admin2@example.com')
+        user2.set_password('123456')
+
+        user3 = User(username='user1', email='user1@example.com')
+        user3.set_password('123456')
+
+        user4 = User(username='blogger', email='blogger@example.com')
+        user4.set_password('123456')
 
         db.session.add(user1)
         db.session.add(user2)
         db.session.add(user3)
+        db.session.add(user4)
         db.session.commit()
 
         # Створити тестові пости
@@ -33,25 +43,32 @@ def init_database():
         post2 = Post(
             title='Про Flask та веб-розробку',
             content='Flask - це мікрофреймворк для Python, який дозволяє швидко створювати веб-додатки. Він простий у використанні та дуже гнучкий.',
-            user_id=user3.id
+            user_id=user4.id
         )
 
         post3 = Post(
             title='Майбутнє веб-технологій',
             content='Веб-технології розвиваються дуже швидко. Кожного дня з\'являються нові інструменти та підходи до розробки.',
+            user_id=user3.id
+        )
+
+        post4 = Post(
+            title='Новий пост від admin2',
+            content='Це пост створений користувачем admin2 для тестування системи.',
             user_id=user2.id
         )
 
         db.session.add(post1)
         db.session.add(post2)
         db.session.add(post3)
+        db.session.add(post4)
         db.session.commit()
 
         # Створити тестові коментарі
         comment1 = Comment(
             content='Дуже цікавий пост! Дякую за інформацію.',
             post_id=post1.id,
-            user_id=user2.id
+            user_id=user3.id
         )
 
         comment2 = Comment(
@@ -63,15 +80,27 @@ def init_database():
         comment3 = Comment(
             content='Було б цікаво почитати більше про нові технології.',
             post_id=post3.id,
-            user_id=user3.id
+            user_id=user4.id
+        )
+
+        comment4 = Comment(
+            content='Відмінний пост від admin2!',
+            post_id=post4.id,
+            user_id=user1.id
         )
 
         db.session.add(comment1)
         db.session.add(comment2)
         db.session.add(comment3)
+        db.session.add(comment4)
         db.session.commit()
 
         print("База даних успішно ініціалізована з тестовими даними!")
+        print("Тестові користувачі:")
+        print("- admin:admin@example.com (пароль: 123456)")
+        print("- admin2:admin2@example.com (пароль: 123456)")
+        print("- user1:user1@example.com (пароль: 123456)")
+        print("- blogger:blogger@example.com (пароль: 123456)")
 
 
 if __name__ == '__main__':

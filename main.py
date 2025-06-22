@@ -1,170 +1,266 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
-from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask_wtf.csrf import CSRFProtect
+from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
+from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timedelta
+from models import db, User, Post, Comment
+from forms import LoginForm, RegisterForm, UserForm, PostForm, CommentForm
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'
+app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://admin:1234567890@localhost/flask_crud'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = 'jwt-secret-key-change-in-production'
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
 
-db = SQLAlchemy(app)
-
-
-# Models
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    posts = db.relationship('Post', backref='author', lazy=True)
-    comments = db.relationship('Comment', backref='author', lazy=True)
+db.init_app(app)
+csrf = CSRFProtect(app)
+jwt = JWTManager(app)
 
 
-class Post(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+def login_required(f):
+    """Simple decorator to check if user is logged in"""
 
-    comments = db.relationship('Comment', backref='post', lazy=True, cascade='all, delete-orphan')
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please log in first.', 'error')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
 
-
-class Comment(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    decorated_function.__name__ = f.__name__
+    return decorated_function
 
 
 # Routes
 @app.route('/')
 def index():
     users = User.query.all()
-    posts = Post.query.all()
+    posts = Post.query.order_by(Post.created_at.desc()).limit(5).all()
     return render_template('index.html', users=users, posts=posts)
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data).first()
+        if user and user.check_password(form.password.data):
+            session['user_id'] = user.id
+            session['username'] = user.username
+            access_token = create_access_token(identity=user.id)
+            flash('Login successful!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Wrong username or password!', 'error')
+    return render_template('login.html', form=form)
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    form = RegisterForm()
+    if form.validate_on_submit():
+        try:
+            user = User(username=form.username.data, email=form.email.data)
+            user.set_password(form.password.data)
+            db.session.add(user)
+            db.session.commit()
+            flash('Registration successful! You can now log in.', 'success')
+            return redirect(url_for('login'))
+        except IntegrityError:
+            db.session.rollback()
+            # Check what caused the error
+            existing_user = User.query.filter_by(username=form.username.data).first()
+            existing_email = User.query.filter_by(email=form.email.data).first()
+
+            if existing_user:
+                flash('This username is already taken. Choose another one.', 'error')
+            elif existing_email:
+                flash('This email is already registered. Choose another one.', 'error')
+            else:
+                flash('Registration failed. Please try again.', 'error')
+    return render_template('register.html', form=form)
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('You have been logged out.', 'success')
+    return redirect(url_for('index'))
 
 
 # User CRUD
 @app.route('/users')
+@login_required
 def users():
     users = User.query.all()
     return render_template('users.html', users=users)
 
 
 @app.route('/users/create', methods=['GET', 'POST'])
+@login_required
 def create_user():
-    if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
+    form = UserForm()
+    if form.validate_on_submit():
+        try:
+            user = User(username=form.username.data, email=form.email.data)
+            user.set_password(form.password.data)
+            db.session.add(user)
+            db.session.commit()
+            flash('User created!', 'success')
+            return redirect(url_for('users'))
+        except IntegrityError:
+            db.session.rollback()
+            # Check what caused the error
+            existing_user = User.query.filter_by(username=form.username.data).first()
+            existing_email = User.query.filter_by(email=form.email.data).first()
 
-        user = User(username=username, email=email)
-        db.session.add(user)
-        db.session.commit()
-        flash('User created!')
-        return redirect(url_for('users'))
-    return render_template('create_user.html')
+            if existing_user:
+                flash('This username is already taken. Choose another one.', 'error')
+            elif existing_email:
+                flash('This email is already used. Choose another one.', 'error')
+            else:
+                flash('User creation failed. Please try again.', 'error')
+    return render_template('create_user.html', form=form)
 
 
 @app.route('/users/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit_user(id):
     user = User.query.get_or_404(id)
-    if request.method == 'POST':
-        user.username = request.form['username']
-        user.email = request.form['email']
-        db.session.commit()
-        flash('User updated!')
-        return redirect(url_for('users'))
-    return render_template('edit_user.html', user=user)
+    form = UserForm(user_id=id, obj=user)
+    if form.validate_on_submit():
+        try:
+            user.username = form.username.data
+            user.email = form.email.data
+            if form.password.data:
+                user.set_password(form.password.data)
+            db.session.commit()
+            flash('User updated!', 'success')
+            return redirect(url_for('users'))
+        except IntegrityError:
+            db.session.rollback()
+            # Check what caused the error
+            existing_user = User.query.filter(User.username == form.username.data, User.id != id).first()
+            existing_email = User.query.filter(User.email == form.email.data, User.id != id).first()
+
+            if existing_user:
+                flash('This username is already taken by another user.', 'error')
+            elif existing_email:
+                flash('This email is already used by another user.', 'error')
+            else:
+                flash('User update failed. Please try again.', 'error')
+    return render_template('edit_user.html', form=form, user=user)
 
 
 @app.route('/users/<int:id>/delete', methods=['POST'])
+@login_required
 def delete_user(id):
     user = User.query.get_or_404(id)
     db.session.delete(user)
     db.session.commit()
-    flash('User deleted!')
+    flash('User deleted!', 'success')
     return redirect(url_for('users'))
 
 
 # Post CRUD
 @app.route('/posts')
 def posts():
-    posts = Post.query.all()
+    posts = Post.query.order_by(Post.created_at.desc()).all()
     return render_template('posts.html', posts=posts)
 
 
 @app.route('/posts/create', methods=['GET', 'POST'])
+@login_required
 def create_post():
-    if request.method == 'POST':
-        title = request.form['title']
-        content = request.form['content']
-        user_id = request.form['user_id']
-
-        post = Post(title=title, content=content, user_id=user_id)
+    form = PostForm()
+    if form.validate_on_submit():
+        post = Post(
+            title=form.title.data,
+            content=form.content.data,
+            user_id=session['user_id']
+        )
         db.session.add(post)
         db.session.commit()
-        flash('Post created!')
+        flash('Post created!', 'success')
         return redirect(url_for('posts'))
-
-    users = User.query.all()
-    return render_template('create_post.html', users=users)
+    return render_template('create_post.html', form=form)
 
 
 @app.route('/posts/<int:id>')
 def view_post(id):
     post = Post.query.get_or_404(id)
-    comments = Comment.query.filter_by(post_id=id).all()
-    users = User.query.all()
-    return render_template('view_post.html', post=post, comments=comments, users=users)
+    comments = Comment.query.filter_by(post_id=id).order_by(Comment.created_at.desc()).all()
+    form = CommentForm()
+    return render_template('view_post.html', post=post, comments=comments, form=form)
 
 
 @app.route('/posts/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit_post(id):
     post = Post.query.get_or_404(id)
-    if request.method == 'POST':
-        post.title = request.form['title']
-        post.content = request.form['content']
-        post.user_id = request.form['user_id']
-        db.session.commit()
-        flash('Post updated!')
+
+    # Check if user owns this post
+    if post.user_id != session['user_id']:
+        flash('You can only edit your own posts!', 'error')
         return redirect(url_for('posts'))
 
-    users = User.query.all()
-    return render_template('edit_post.html', post=post, users=users)
+    form = PostForm(obj=post)
+    if form.validate_on_submit():
+        post.title = form.title.data
+        post.content = form.content.data
+        db.session.commit()
+        flash('Post updated!', 'success')
+        return redirect(url_for('view_post', id=post.id))
+    return render_template('edit_post.html', form=form, post=post)
 
 
 @app.route('/posts/<int:id>/delete', methods=['POST'])
+@login_required
 def delete_post(id):
     post = Post.query.get_or_404(id)
+
+    # Check if user owns this post
+    if post.user_id != session['user_id']:
+        flash('You can only delete your own posts!', 'error')
+        return redirect(url_for('posts'))
+
     db.session.delete(post)
     db.session.commit()
-    flash('Post deleted!')
+    flash('Post deleted!', 'success')
     return redirect(url_for('posts'))
 
 
 # Comment CRUD
 @app.route('/comments/create/<int:post_id>', methods=['POST'])
+@login_required
 def create_comment(post_id):
-    content = request.form['content']
-    user_id = request.form['user_id']
-
-    comment = Comment(content=content, post_id=post_id, user_id=user_id)
-    db.session.add(comment)
-    db.session.commit()
-    flash('Comment added!')
+    form = CommentForm()
+    if form.validate_on_submit():
+        comment = Comment(
+            content=form.content.data,
+            post_id=post_id,
+            user_id=session['user_id']
+        )
+        db.session.add(comment)
+        db.session.commit()
+        flash('Comment added!', 'success')
     return redirect(url_for('view_post', id=post_id))
 
 
 @app.route('/comments/<int:id>/delete', methods=['POST'])
+@login_required
 def delete_comment(id):
     comment = Comment.query.get_or_404(id)
     post_id = comment.post_id
+
+    # Check if user owns this comment
+    if comment.user_id != session['user_id']:
+        flash('You can only delete your own comments!', 'error')
+        return redirect(url_for('view_post', id=post_id))
+
     db.session.delete(comment)
     db.session.commit()
-    flash('Comment deleted!')
+    flash('Comment deleted!', 'success')
     return redirect(url_for('view_post', id=post_id))
 
 

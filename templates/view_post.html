@@ -12,47 +12,50 @@
                     <small class="text-muted">
                         Автор: {{ post.author.username }} | {{ post.created_at.strftime('%d.%m.%Y %H:%M') }}
                     </small>
-                    <div>
-                        <a href="{{ url_for('edit_post', id=post.id) }}" class="btn btn-sm btn-warning">Редагувати</a>
-                        <form method="POST" action="{{ url_for('delete_post', id=post.id) }}" style="display: inline;">
-                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Ви впевнені?')">Видалити</button>
-                        </form>
-                    </div>
+                    {% if session.user_id == post.user_id %}
+                        <div>
+                            <a href="{{ url_for('edit_post', id=post.id) }}" class="btn btn-sm btn-warning">Редагувати</a>
+                            <form method="POST" action="{{ url_for('delete_post', id=post.id) }}" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Ви впевнені?')">Видалити</button>
+                            </form>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
 
         <!-- Add Comment Form -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5>Додати коментар</h5>
-            </div>
-            <div class="card-body">
-                {% if users %}
+        {% if session.user_id %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Додати коментар</h5>
+                </div>
+                <div class="card-body">
                     <form method="POST" action="{{ url_for('create_comment', post_id=post.id) }}">
-                        <div class="mb-3">
-                            <label for="user_id" class="form-label">Автор коментаря</label>
-                            <select class="form-control" id="user_id" name="user_id" required>
-                                <option value="">Виберіть автора</option>
-                                {% for user in users %}
-                                    <option value="{{ user.id }}">{{ user.username }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
+                        {{ form.hidden_tag() }}
 
                         <div class="mb-3">
-                            <label for="content" class="form-label">Коментар</label>
-                            <textarea class="form-control" id="content" name="content" rows="3" required></textarea>
+                            {{ form.content.label(class="form-label") }}
+                            {{ form.content(class="form-control") }}
+                            {% if form.content.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.content.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
 
-                        <button type="submit" class="btn btn-primary">Додати коментар</button>
+                        {{ form.submit(class="btn btn-primary") }}
                     </form>
-                {% else %}
-                    <p class="text-muted">Для додавання коментарів потрібно створити користувача.</p>
-                    <a href="{{ url_for('create_user') }}" class="btn btn-primary">Створити користувача</a>
-                {% endif %}
+                </div>
             </div>
-        </div>
+        {% else %}
+            <div class="alert alert-info">
+                <a href="{{ url_for('login') }}">Увійдіть</a>, щоб додати коментар.
+            </div>
+        {% endif %}
 
         <!-- Comments -->
         <div class="card">
@@ -68,11 +71,14 @@
                                 <small class="text-muted">
                                     {{ comment.author.username }} | {{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}
                                 </small>
-                                <form method="POST" action="{{ url_for('delete_comment', id=comment.id) }}" style="display: inline;">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Видалити коментар?')">
-                                        Видалити
-                                    </button>
-                                </form>
+                                {% if session.user_id == comment.user_id %}
+                                    <form method="POST" action="{{ url_for('delete_comment', id=comment.id) }}" style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Видалити коментар?')">
+                                            Видалити
+                                        </button>
+                                    </form>
+                                {% endif %}
                             </div>
                         </div>
                     {% endfor %}

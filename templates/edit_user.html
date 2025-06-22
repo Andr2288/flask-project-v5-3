@@ -6,18 +6,47 @@
         <h2>Редагувати користувача</h2>
 
         <form method="POST">
+            {{ form.hidden_tag() }}
+
             <div class="mb-3">
-                <label for="username" class="form-label">Ім'я користувача</label>
-                <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" required>
+                {{ form.username.label(class="form-label") }}
+                {{ form.username(class="form-control") }}
+                {% if form.username.errors %}
+                    <div class="text-danger">
+                        {% for error in form.username.errors %}
+                            <small>{{ error }}</small>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             </div>
 
             <div class="mb-3">
-                <label for="email" class="form-label">Email</label>
-                <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+                {{ form.email.label(class="form-label") }}
+                {{ form.email(class="form-control") }}
+                {% if form.email.errors %}
+                    <div class="text-danger">
+                        {% for error in form.email.errors %}
+                            <small>{{ error }}</small>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             </div>
 
             <div class="mb-3">
-                <button type="submit" class="btn btn-primary">Оновити</button>
+                {{ form.password.label(class="form-label") }}
+                {{ form.password(class="form-control") }}
+                <small class="form-text text-muted">Залиште порожнім, щоб зберегти поточний пароль</small>
+                {% if form.password.errors %}
+                    <div class="text-danger">
+                        {% for error in form.password.errors %}
+                            <small>{{ error }}</small>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="mb-3">
+                {{ form.submit(class="btn btn-primary") }}
                 <a href="{{ url_for('users') }}" class="btn btn-secondary">Скасувати</a>
             </div>
         </form>
