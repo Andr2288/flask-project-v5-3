@@ -15,7 +15,6 @@ from models import db, User, Post, Comment
 from forms import LoginForm, RegisterForm, PostForm, CommentForm
 from api_resources import api as restful_api
 from async_service import run_async_server
-from simple_soap_service import simple_soap
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
@@ -32,21 +31,16 @@ jwt = JWTManager(app)
 
 # Initialize Flask-RESTful
 restful_api.init_app(app)
-
-# Register Simple SOAP service
-app.register_blueprint(simple_soap, url_prefix='/simple_soap')
-print("✓ Simple SOAP service initialized")
+print("✓ Flask-RESTful API initialized")
 
 
 def login_required(f):
     """Simple decorator to check if user is logged in"""
-
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             flash('Please log in first.', 'error')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
-
     decorated_function.__name__ = f.__name__
     return decorated_function
 
@@ -95,7 +89,6 @@ def test_technologies():
             'Flask-WTF': 'Forms - ✓',
             'Flask-JWT-Extended': 'Authentication - ✓',
             'Flask-RESTful': 'REST API - ✓ (check /api/posts)',
-            'Simple-SOAP': 'SOAP service - ✓ (Simple XML implementation)',
             'Flask-Migrate': 'Database migrations - ✓',
             'Jinja2': 'Template engine - ✓',
             'Folium': 'Interactive maps - ✓ (check /map)',
@@ -114,10 +107,6 @@ def test_technologies():
                 'Users': '/api/users',
                 'Posts': '/api/posts',
                 'Auth': '/api/auth/login'
-            },
-            'SOAP Service': {
-                'WSDL': '/simple_soap/soap?wsdl',
-                'Endpoint': '/simple_soap/soap'
             },
             'Async Service (aiohttp)': {
                 'Base URL': 'http://localhost:8080',
@@ -312,7 +301,6 @@ def delete_comment(id):
 
 def start_async_server():
     """Start the async server in a separate thread"""
-
     def run_async():
         try:
             loop = asyncio.new_event_loop()
@@ -339,11 +327,10 @@ if __name__ == '__main__':
     start_async_server()
 
     print("\n" + "=" * 60)
-    print("FLASK CRUD APP - CORE TECHNOLOGIES")
+    print("FLASK CRUD APP - ESSENTIAL TECHNOLOGIES")
     print("=" * 60)
     print("Main Flask app: http://localhost:5000")
     print("API endpoints: http://localhost:5000/api/test/technologies")
-    print("Simple SOAP service: http://localhost:5000/simple_soap/soap?wsdl")
     print("Async service: http://localhost:8080")
     print("=" * 60)
 

@@ -115,3 +115,8 @@ Thumbs.db
 # Application specific
 async_logs.txt
 logs/
+
+# Removed files
+potion_api.py
+alternative_api.py
+simple_soap_service.py

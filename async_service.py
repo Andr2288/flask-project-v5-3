@@ -187,39 +187,207 @@ async def handle_async_analytics(request):
 
 async def handle_websocket_echo(request):
     """Handle WebSocket connections for real-time communication"""
+    print("📡 WebSocket connection attempt...")
+
     ws = web.WebSocketResponse()
     await ws.prepare(request)
 
+    print("✅ WebSocket connection established")
     await log_activity_async('WebSocket connection established')
 
-    async for msg in ws:
-        if msg.type == aiohttp.WSMsgType.TEXT:
-            try:
-                data = json.loads(msg.data)
+    try:
+        async for msg in ws:
+            if msg.type == aiohttp.WSMsgType.TEXT:
+                try:
+                    data = json.loads(msg.data)
+                    print(f"📨 Received WebSocket message: {data}")
 
-                # Process message asynchronously
-                processed = await process_data_async(data)
+                    # Process message asynchronously
+                    processed = await process_data_async(data)
 
-                response = {
-                    'type': 'echo',
-                    'original': data,
-                    'processed': processed,
-                    'timestamp': datetime.utcnow().isoformat()
-                }
+                    response = {
+                        'type': 'echo',
+                        'original': data,
+                        'processed': processed,
+                        'timestamp': datetime.utcnow().isoformat()
+                    }
 
-                await ws.send_str(json.dumps(response))
-                await log_activity_async(f'WebSocket message processed: {data}')
+                    await ws.send_str(json.dumps(response))
+                    print(f"📤 Sent WebSocket response: {response}")
+                    await log_activity_async(f'WebSocket message processed: {data}')
 
-            except json.JSONDecodeError:
-                await ws.send_str(json.dumps({
-                    'type': 'error',
-                    'message': 'Invalid JSON format'
-                }))
-        elif msg.type == aiohttp.WSMsgType.ERROR:
-            print(f'WebSocket error: {ws.exception()}')
+                except json.JSONDecodeError:
+                    error_response = {
+                        'type': 'error',
+                        'message': 'Invalid JSON format'
+                    }
+                    await ws.send_str(json.dumps(error_response))
+                    print("❌ WebSocket JSON decode error")
 
-    await log_activity_async('WebSocket connection closed')
+            elif msg.type == aiohttp.WSMsgType.ERROR:
+                print(f'❌ WebSocket error: {ws.exception()}')
+                break
+            elif msg.type == aiohttp.WSMsgType.CLOSE:
+                print("🔚 WebSocket closed by client")
+                break
+
+    except Exception as e:
+        print(f"❌ WebSocket handler error: {e}")
+    finally:
+        print("🔚 WebSocket connection closed")
+        await log_activity_async('WebSocket connection closed')
+
     return ws
+
+
+async def handle_websocket_test_page(request):
+    """Serve a test page for WebSocket"""
+    html_content = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .message-box { border: 1px solid #ccc; padding: 20px; margin: 10px 0; }
+        input[type="text"] { width: 300px; padding: 10px; margin: 5px; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .log { background: #f8f9fa; padding: 15px; margin: 10px 0; height: 300px; overflow-y: scroll; font-family: monospace; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .connected { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .disconnected { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 WebSocket Test Page</h1>
+
+        <div id="status" class="status disconnected">❌ Disconnected</div>
+
+        <div class="message-box">
+            <h3>Send Message:</h3>
+            <input type="text" id="messageInput" placeholder="Enter your message here..." value='{"message": "Hello WebSocket!", "type": "test"}'>
+            <br>
+            <button onclick="connect()">Connect</button>
+            <button onclick="disconnect()">Disconnect</button>
+            <button onclick="sendMessage()">Send Message</button>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+
+        <div class="message-box">
+            <h3>📋 WebSocket Log:</h3>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        const logDiv = document.getElementById('log');
+        const statusDiv = document.getElementById('status');
+        const messageInput = document.getElementById('messageInput');
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(connected) {
+            if (connected) {
+                statusDiv.className = 'status connected';
+                statusDiv.innerHTML = '✅ Connected to WebSocket';
+            } else {
+                statusDiv.className = 'status disconnected';
+                statusDiv.innerHTML = '❌ Disconnected';
+            }
+        }
+
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log('❌ Already connected!');
+                return;
+            }
+
+            log('🔄 Connecting to WebSocket...');
+            ws = new WebSocket('ws://localhost:8080/async/ws');
+
+            ws.onopen = function(event) {
+                log('✅ WebSocket connected successfully!');
+                updateStatus(true);
+            };
+
+            ws.onmessage = function(event) {
+                log('📨 Received: ' + event.data);
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'echo') {
+                        log('🔄 Echo response received with processed data');
+                    }
+                } catch (e) {
+                    log('⚠️ Received non-JSON message');
+                }
+            };
+
+            ws.onclose = function(event) {
+                log('🔚 WebSocket connection closed');
+                updateStatus(false);
+            };
+
+            ws.onerror = function(error) {
+                log('❌ WebSocket error: ' + error);
+                updateStatus(false);
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                log('🔚 Disconnecting...');
+            } else {
+                log('❌ Not connected!');
+            }
+        }
+
+        function sendMessage() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('❌ Not connected! Please connect first.');
+                return;
+            }
+
+            const message = messageInput.value.trim();
+            if (!message) {
+                log('❌ Please enter a message!');
+                return;
+            }
+
+            log('📤 Sending: ' + message);
+            ws.send(message);
+        }
+
+        function clearLog() {
+            logDiv.innerHTML = '';
+        }
+
+        // Handle Enter key in input field
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Auto-connect on page load
+        window.onload = function() {
+            log('🚀 WebSocket Test Page Loaded');
+            log('👆 Click "Connect" to establish WebSocket connection');
+        };
+    </script>
+</body>
+</html>
+    """
+
+    return web.Response(text=html_content, content_type='text/html')
 
 
 async def handle_health_check(request):
@@ -230,7 +398,15 @@ async def handle_health_check(request):
         'status': 'healthy',
         'service': 'async_service',
         'timestamp': datetime.utcnow().isoformat(),
-        'version': '1.0.0'
+        'version': '1.0.0',
+        'endpoints': {
+            'health': '/async/health',
+            'posts': '/async/posts',
+            'analytics': '/async/analytics',
+            'batch': '/async/batch',
+            'websocket': '/async/ws',
+            'websocket_test': '/async/ws-test'
+        }
     })
 
 
@@ -244,6 +420,7 @@ def create_async_app():
     app.router.add_post('/async/batch', handle_batch_processing)
     app.router.add_get('/async/analytics', handle_async_analytics)
     app.router.add_get('/async/ws', handle_websocket_echo)
+    app.router.add_get('/async/ws-test', handle_websocket_test_page)
     app.router.add_get('/async/health', handle_health_check)
 
     return app
@@ -262,14 +439,17 @@ async def run_async_server():
     site = web.TCPSite(runner, 'localhost', 8080)
     await site.start()
 
-    print("Async server started on http://localhost:8080")
+    print("🚀 Async server started on http://localhost:8080")
     print("Available endpoints:")
     print("  GET  /async/posts - Get posts asynchronously")
     print("  GET  /async/external - Fetch external data")
     print("  POST /async/batch - Batch processing")
     print("  GET  /async/analytics - Analytics data")
-    print("  GET  /async/ws - WebSocket echo")
+    print("  GET  /async/ws - WebSocket echo service")
+    print("  GET  /async/ws-test - WebSocket test page")
     print("  GET  /async/health - Health check")
+    print("")
+    print("🔌 WebSocket Test: http://localhost:8080/async/ws-test")
 
     await log_activity_async('Async server started')
 

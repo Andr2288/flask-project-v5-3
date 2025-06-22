@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Test script to verify all technologies are working correctly
-Core technologies only - fixed version
+Essential technologies only - no SOAP
 """
 
 import requests
@@ -11,14 +11,12 @@ import aiohttp
 import websockets
 import time
 import sys
-import xml.etree.ElementTree as ET
 
 
 class TechnologyTester:
     def __init__(self):
         self.base_url = "http://localhost:5000"
         self.async_url = "http://localhost:8080"
-        self.soap_url = "http://localhost:5000/simple_soap/soap"
         self.results = {}
 
     def print_header(self, title):
@@ -74,90 +72,6 @@ class TechnologyTester:
 
         except Exception as e:
             self.print_result("RESTful API", False, str(e))
-
-    def test_simple_soap_service(self):
-        """Test Simple SOAP service"""
-        self.print_header("SIMPLE SOAP SERVICE")
-
-        try:
-            # Test WSDL
-            response = requests.get(f"{self.soap_url}?wsdl")
-            self.print_result("SOAP - WSDL Available", response.status_code == 200)
-
-            # Test SOAP service test endpoint first
-            response = requests.get(f"{self.base_url}/simple_soap/test")
-            if response.status_code == 200:
-                self.print_result("SOAP - Service Running", True)
-            else:
-                self.print_result("SOAP - Service Running", False)
-
-            # Test SOAP request manually with corrected XML format
-            # Test authentication
-            soap_request = '''<?xml version="1.0" encoding="UTF-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-    <soap:Body>
-        <authenticateUser xmlns="http://localhost:5000/soap">
-            <username>admin</username>
-            <password>123456</password>
-        </authenticateUser>
-    </soap:Body>
-</soap:Envelope>'''
-
-            headers = {
-                'Content-Type': 'text/xml; charset=utf-8',
-                'SOAPAction': 'authenticateUser'
-            }
-
-            response = requests.post(self.soap_url, data=soap_request, headers=headers)
-            if response.status_code == 200:
-                # Check if response contains success message
-                success = "successful" in response.text.lower()
-                self.print_result("SOAP - Authentication", success,
-                                f"Response status: {response.status_code}")
-            else:
-                self.print_result("SOAP - Authentication", False,
-                                f"Status: {response.status_code}, Response: {response.text[:100]}")
-
-            # Test get all users
-            soap_request_users = '''<?xml version="1.0" encoding="UTF-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-    <soap:Body>
-        <getAllUsers xmlns="http://localhost:5000/soap">
-        </getAllUsers>
-    </soap:Body>
-</soap:Envelope>'''
-
-            headers['SOAPAction'] = 'getAllUsers'
-            response = requests.post(self.soap_url, data=soap_request_users, headers=headers)
-            if response.status_code == 200:
-                # Check if response contains user data
-                has_users = "ID:" in response.text
-                self.print_result("SOAP - Get All Users", has_users,
-                                f"Response contains user data: {has_users}")
-            else:
-                self.print_result("SOAP - Get All Users", False, f"Status: {response.status_code}")
-
-            # Test get statistics
-            soap_request_stats = '''<?xml version="1.0" encoding="UTF-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-    <soap:Body>
-        <getStatistics xmlns="http://localhost:5000/soap">
-        </getStatistics>
-    </soap:Body>
-</soap:Envelope>'''
-
-            headers['SOAPAction'] = 'getStatistics'
-            response = requests.post(self.soap_url, data=soap_request_stats, headers=headers)
-            if response.status_code == 200:
-                # Check if response contains statistics
-                has_stats = "Statistics" in response.text
-                self.print_result("SOAP - Get Statistics", has_stats,
-                                f"Response contains stats: {has_stats}")
-            else:
-                self.print_result("SOAP - Get Statistics", False, f"Status: {response.status_code}")
-
-        except Exception as e:
-            self.print_result("Simple SOAP Service", False, str(e))
 
     async def test_async_service(self):
         """Test aiohttp async service"""
@@ -332,8 +246,8 @@ class TechnologyTester:
 
     def run_all_tests(self):
         """Run all technology tests"""
-        print("FLASK CRUD APP - CORE TECHNOLOGY VERIFICATION")
-        print("Testing core technologies only...")
+        print("FLASK CRUD APP - ESSENTIAL TECHNOLOGY VERIFICATION")
+        print("Testing essential technologies only...")
 
         # Wait for services to be ready
         print("\nWaiting for services to be ready...")
@@ -342,7 +256,6 @@ class TechnologyTester:
         # Run all tests
         self.test_flask_basic()
         self.test_restful_api()
-        self.test_simple_soap_service()
 
         # Run async tests
         asyncio.run(self.test_async_service())
