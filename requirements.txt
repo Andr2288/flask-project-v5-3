@@ -16,10 +16,10 @@ email-validator==2.1.0
 # APIs
 Flask-RESTful==0.3.10
 
-# WebSocket with Flask (compatible versions)
+# WebSocket with Flask (FIXED VERSIONS)
 Flask-SocketIO==5.3.6
-python-socketio==5.10.0
-python-engineio==4.7.1
+python-socketio==5.11.0
+python-engineio==4.9.0
 
 # Admin interface
 Flask-Admin==1.6.1
