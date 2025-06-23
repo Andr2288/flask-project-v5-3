@@ -5,13 +5,20 @@ import json
 
 def init_socketio(app):
     """Initialize Flask-SocketIO"""
-    socketio = SocketIO(app, cors_allowed_origins="*")
+    socketio = SocketIO(
+        app,
+        cors_allowed_origins="*",
+        async_mode='threading'  # Use threading mode for better compatibility
+    )
 
     @socketio.on('connect')
     def handle_connect():
         """Handle client connection"""
         print(f"📡 Client connected: {datetime.utcnow()}")
-        emit('status', {'message': 'Connected to Flask-SocketIO server', 'timestamp': datetime.utcnow().isoformat()})
+        emit('status', {
+            'message': 'Connected to Flask-SocketIO server',
+            'timestamp': datetime.utcnow().isoformat()
+        })
 
     @socketio.on('disconnect')
     def handle_disconnect():

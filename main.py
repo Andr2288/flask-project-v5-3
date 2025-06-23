@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_wtf.csrf import CSRFProtect
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from flask_migrate import Migrate
@@ -16,8 +16,8 @@ from forms import LoginForm, RegisterForm, PostForm, CommentForm
 from api_resources import api as restful_api
 from async_service import run_async_server
 from websocket_service import init_socketio
-from admin import init_basic_admin  # Import basic Flask-Admin
-from template_helpers import init_template_helpers  # Import template helpers
+from admin import init_basic_admin
+from template_helpers import init_template_helpers
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
@@ -68,34 +68,34 @@ def api_login():
         data = request.get_json()
 
         if not data:
-            return {'message': 'JSON data required'}, 400
+            return jsonify({'message': 'JSON data required'}), 400
 
         if 'username' not in data or 'password' not in data:
-            return {'message': 'Username and password required'}, 400
+            return jsonify({'message': 'Username and password required'}), 400
 
         user = User.query.filter_by(username=data['username']).first()
         if user and user.check_password(data['password']):
             access_token = create_access_token(identity=user.id)
-            return {
+            return jsonify({
                 'access_token': access_token,
                 'user': {
                     'id': user.id,
                     'username': user.username,
                     'email': user.email
                 }
-            }
+            })
         else:
-            return {'message': 'Invalid credentials'}, 401
+            return jsonify({'message': 'Invalid credentials'}), 401
 
     except Exception as e:
-        return {'message': f'Login error: {str(e)}'}, 500
+        return jsonify({'message': f'Login error: {str(e)}'}), 500
 
 
 # API endpoint for testing different technologies
 @app.route('/api/test/technologies')
 def test_technologies():
     """Test endpoint to show all integrated technologies"""
-    return {
+    return jsonify({
         'message': 'Technologies integration status',
         'technologies': {
             'Flask': 'Web framework - ✓',
@@ -145,7 +145,7 @@ def test_technologies():
                 'Comments Management': '/admin/comment'
             }
         }
-    }
+    })
 
 
 # Routes (keeping existing ones)
@@ -370,5 +370,5 @@ if __name__ == '__main__':
     print("Async service: http://localhost:8080")
     print("=" * 60)
 
-    # Run with SocketIO support
+    # Run with SocketIO support - removed allow_unsafe_werkzeug
     socketio.run(app, debug=True, use_reloader=False, allow_unsafe_werkzeug=True)

@@ -26,12 +26,13 @@ class UsersAPI(Resource):
     def get(self):
         """Get all users"""
         users = User.query.all()
-        return jsonify([{
+        users_data = [{
             'id': user.id,
             'username': user.username,
             'email': user.email,
             'created_at': user.created_at.isoformat()
-        } for user in users])
+        } for user in users]
+        return users_data
 
     def post(self):
         """Create new user"""
@@ -88,14 +89,15 @@ class PostsAPI(Resource):
     def get(self):
         """Get all posts"""
         posts = Post.query.order_by(Post.created_at.desc()).all()
-        return jsonify([{
+        posts_data = [{
             'id': post.id,
             'title': post.title,
             'content': post.content,
             'author': post.author.username,
             'created_at': post.created_at.isoformat(),
             'comments_count': len(post.comments)
-        } for post in posts])
+        } for post in posts]
+        return posts_data
 
     @jwt_required()
     def post(self):

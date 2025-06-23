@@ -45,6 +45,8 @@ class BasicUserAdmin(AdminAuthMixin, ModelView):
     form_base_class = NoCSRFForm
     column_exclude_list = ['password_hash']
     form_excluded_columns = ['password_hash']
+    column_searchable_list = ['username', 'email']
+    column_filters = ['username', 'email', 'created_at']
 
     def on_model_change(self, form, model, is_created):
         if is_created and not hasattr(model, 'password_hash'):
@@ -53,13 +55,20 @@ class BasicUserAdmin(AdminAuthMixin, ModelView):
 
 class BasicPostAdmin(AdminAuthMixin, ModelView):
     form_base_class = NoCSRFForm
+    column_searchable_list = ['title', 'content']
+    column_filters = ['title', 'created_at', 'user_id']
+    column_list = ['id', 'title', 'author', 'created_at']
 
 
 class BasicCommentAdmin(AdminAuthMixin, ModelView):
     form_base_class = NoCSRFForm
+    column_searchable_list = ['content']
+    column_filters = ['created_at', 'user_id', 'post_id']
+    column_list = ['id', 'content', 'author', 'post', 'created_at']
 
 
 def init_basic_admin(app):
+    """Initialize Flask-Admin"""
     admin = Admin(
         app,
         name='Flask CRUD Admin',
