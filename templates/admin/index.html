@@ -1,0 +1,58 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="container-fluid">
+    <h1>Admin Dashboard</h1>
+
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary">
+                <div class="card-header">Users</div>
+                <div class="card-body">
+                    <h4 class="card-title">{{ users_count }}</h4>
+                    <p class="card-text">Total users</p>
+                    <a href="{{ url_for('user.index_view') }}" class="btn btn-light">Manage Users</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card text-white bg-success">
+                <div class="card-header">Posts</div>
+                <div class="card-body">
+                    <h4 class="card-title">{{ posts_count }}</h4>
+                    <p class="card-text">Total posts</p>
+                    <a href="{{ url_for('post.index_view') }}" class="btn btn-light">Manage Posts</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card text-white bg-info">
+                <div class="card-header">Comments</div>
+                <div class="card-body">
+                    <h4 class="card-title">{{ comments_count }}</h4>
+                    <p class="card-text">Total comments</p>
+                    <a href="{{ url_for('comment.index_view') }}" class="btn btn-light">Manage Comments</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <a href="{{ url_for('user.create_view') }}" class="btn btn-primary mr-2">Add User</a>
+                    <a href="{{ url_for('post.create_view') }}" class="btn btn-success mr-2">Create Post</a>
+                    <a href="{{ url_for('comment.create_view') }}" class="btn btn-info mr-2">Add Comment</a>
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary" target="_blank">View Site</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

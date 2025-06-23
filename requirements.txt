@@ -20,6 +20,9 @@ Flask-RESTful==0.3.10
 Flask-SocketIO==5.3.6
 python-socketio==5.10.0
 
+# Admin interface
+Flask-Admin==1.6.1
+
 # Async
 aiohttp==3.9.1
 aiofiles==23.2.0

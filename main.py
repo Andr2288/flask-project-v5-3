@@ -16,6 +16,8 @@ from forms import LoginForm, RegisterForm, PostForm, CommentForm
 from api_resources import api as restful_api
 from async_service import run_async_server
 from websocket_service import init_socketio
+from admin import init_basic_admin  # Import basic Flask-Admin
+from template_helpers import init_template_helpers  # Import template helpers
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-in-production'
@@ -37,6 +39,14 @@ print("✓ Flask-RESTful API initialized")
 # Initialize Flask-SocketIO
 socketio = init_socketio(app)
 print("✓ Flask-SocketIO initialized")
+
+# Initialize Flask-Admin
+admin = init_basic_admin(app)
+print("✓ Flask-Admin initialized")
+
+# Initialize template helpers
+init_template_helpers(app)
+print("✓ Template helpers initialized")
 
 
 def login_required(f):
@@ -96,6 +106,7 @@ def test_technologies():
             'Flask-RESTful': 'REST API - ✓ (check /api/posts)',
             'Flask-Migrate': 'Database migrations - ✓',
             'Flask-SocketIO': 'WebSocket - ✓ (check /websocket)',
+            'Flask-Admin': 'Administration - ✓ (check /admin)',
             'Jinja2': 'Template engine - ✓',
             'Folium': 'Interactive maps - ✓ (check /map)',
             'aiohttp': 'Async HTTP - ✓ (running on port 8080)',
@@ -108,7 +119,8 @@ def test_technologies():
                 'Login': '/login',
                 'Register': '/register',
                 'Map': '/map',
-                'WebSocket Test': '/websocket'
+                'WebSocket Test': '/websocket',
+                'Admin Panel': '/admin'
             },
             'REST API (Flask-RESTful)': {
                 'Users': '/api/users',
@@ -125,6 +137,12 @@ def test_technologies():
             'WebSocket (Flask-SocketIO)': {
                 'Test Page': '/websocket',
                 'Socket.IO endpoint': '/socket.io/'
+            },
+            'Admin Panel (Flask-Admin)': {
+                'Dashboard': '/admin',
+                'Users Management': '/admin/user',
+                'Posts Management': '/admin/post',
+                'Comments Management': '/admin/comment'
             }
         }
     }
@@ -346,6 +364,7 @@ if __name__ == '__main__':
     print("FLASK CRUD APP - ESSENTIAL TECHNOLOGIES")
     print("=" * 60)
     print("Main Flask app: http://localhost:5000")
+    print("Admin Panel: http://localhost:5000/admin")
     print("API endpoints: http://localhost:5000/api/test/technologies")
     print("WebSocket test: http://localhost:5000/websocket")
     print("Async service: http://localhost:8080")
